@@ -1,0 +1,90 @@
+/*
+
+load - consider navigation to be finished when the load event is fired.
+domcontentloaded - consider navigation to be finished when the DOMContentLoaded event is fired.
+networkidle0 - consider navigation to be finished when there are no more than 0 network connections for at least 500 ms.
+networkidle2 - consider navigation to be finished when there are no more than 2 network connections for at least 500 ms.
+
+
+*/
+
+/*
+
+// Set the language forcefully on javascript
+await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, "language", {
+        get: function() {
+            return "bn-BD";
+        }
+    });
+    Object.defineProperty(navigator, "languages", {
+        get: function() {
+            return ["bn-BD", "bn"];
+        }
+    });
+});
+
+*/
+
+const express = require('express');
+const app = express();
+
+//puppeteer = require('puppeteer');
+
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
+puppeteer.use(StealthPlugin())
+
+
+app.get("/", async (request, response) => {
+	try {
+	    const browser = await puppeteer.launch({
+	    	ignoreHTTPSErrors: true,
+	    	headless: true,
+	        args: ['--no-sandbox', '--lang=it-IT,it']
+	    });
+	    const page = await browser.newPage();
+	    await page.setViewport({
+		  width: 640,
+		  height: 480,
+		  deviceScaleFactor: 1,
+		});
+		await page.setExtraHTTPHeaders({
+	    'Accept-Language': 'it'
+		});
+	    //await page.setDefaultNavigationTimeout(6000);
+
+	    /*
+		 await page.setRequestInterception(true);
+		  page.on('request', interceptedRequest => {
+		    if (interceptedRequest.url().endsWith('.png') || interceptedRequest.url().endsWith('.jpg'))
+		      interceptedRequest.abort();
+		    else
+		      interceptedRequest.continue();
+		  });
+	    */
+
+	    const req =  await page.goto(request.query.url,  { waitUntil: 'networkidle2', timeout: 0 }).then(() => {
+	         console.log('success')
+		}).catch((res) => {
+		    console.log('fails', res)
+		});
+	    const data = await page.evaluate(() => document.querySelector('*').outerHTML);
+	    await page.close();
+	    response.set('Content-Type', 'text/plain');
+	    response.send(data);
+		
+	} catch (error) {
+	    console.log(error);
+	    response.set('Content-Type', 'text/plain');
+	    response.send('error');
+    } finally {
+    	await browser.close();
+    }
+
+});
+
+
+var listener = app.listen(3000, function () {
+  console.log('Your app is listening on port ' + listener.address().port);
+});
