@@ -1,0 +1,10 @@
+version: '1'
+services:
+  nodejs:
+    build:
+      context: .
+      dockerfile: DockerFile
+    ports:
+      - "4000:4000"
+    links:
+      - redis
