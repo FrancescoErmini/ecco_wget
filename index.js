@@ -11,14 +11,23 @@ const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/
 
 
 app.get("/", async (request, response) => {
+    const loadImages = ((request.query.loadimages) ? true : false);
+    const customjs = (( request.query.customjs ) ? request.query.customjs : false);
+    // TODO: pass viewport
+    // TODO: pass languages
+    // TODO: pass timeout
+    // TODO: pass headless false
+
+    if (loadImages) {
+        console.log("load images is true");
+    }
+    if (customjs) {
+        // TODO: check if file exists
+        console.log("custom js" + customjs + ".js");
+    }
+
 	try {
-		const load_images = request.query.image;
-		if ( load_images == 'true'){
-			loadImages = true
-		}
-		else {
-			loadImages = fal
-		}
+		
 
 	    const browser = await puppeteer.launch({
 	    	ignoreHTTPSErrors: true,
@@ -26,12 +35,10 @@ app.get("/", async (request, response) => {
             devtools: false,
             slowMo: 0,
 	        args: ['--no-sandbox', '--lang=it-IT,it', '--disable-gpu','--no-sandbox','--no-zygote','--disable-setuid-sandbox','--disable-accelerated-2d-canvas','--disable-dev-shm-usage', "--proxy-server='direct://'", "--proxy-bypass-list=*"]
-
 	    });
 	    browser.on('disconnected', async () => {
             console.log("BROWSER CRASH");
         });
-
 
 	    /* start options */
 
@@ -97,6 +104,7 @@ app.get("/", async (request, response) => {
         await page.evaluateOnNewDocument(() => {
             // Overwrite the `plugins` property to use a custom getter.
             Object.defineProperty(navigator, 'languages', {
+                // TODO: some post suggest that this is not an array, it is a string. 
                 get: () => ['en-US', 'en'],
             });
         });
@@ -108,7 +116,12 @@ app.get("/", async (request, response) => {
 		}).catch((res) => {
 		    console.log('fails', res)
 		});
-	    const data = await page.evaluate(() => document.querySelector('*').outerHTML);
+
+        if ( customjs ) {
+            await page.addScriptTag({ path: './js/'+customjs+'.js' });
+        }
+
+        const data = await page.evaluate(() => document.querySelector('*').outerHTML);
 	    await page.close();
 	    await browser.close();
 	    response.set('Content-Type', 'text/plain');
