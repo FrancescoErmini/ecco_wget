@@ -23,7 +23,7 @@ app.get("/", async (request, response) => {
     }
     if (customjs) {
         // TODO: check if file exists
-        console.log("custom js" + customjs + ".js");
+        console.log("custom js/" + customjs + ".js");
     }
 
 	try {

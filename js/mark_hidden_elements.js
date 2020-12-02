@@ -1,7 +1,3 @@
-function ecco_hidden(){
-    loop(document.body);
-}
-
 var is_hidden = false;
 function loop(node){
     if ( node.localName != "script") {
@@ -32,3 +28,5 @@ function loop(node){
         is_hidden = false
     }
 }
+
+loop(document.body);
