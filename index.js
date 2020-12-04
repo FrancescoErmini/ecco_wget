@@ -17,6 +17,16 @@ const HOST = '0.0.0.0';
 
 const DEBUG = true;
 
+app.get('/', function(req, res) {
+  res.send('OK');
+});
+
+
+function query2bool(value) {
+  return ((value+'').toLowerCase() === 'true')
+}
+
+
 app.post('/', async function (request, response) {
     
     const target_url = request.body.url;
@@ -29,7 +39,7 @@ app.post('/', async function (request, response) {
     const viewport_height = parseInt(viewport.split('x')[1]);
     const headless = request.body.headless || true;
     const language = request.body.language || 'en';
-    const language_country = request.body.language || 'en-US';
+    const language_country = request.body.language_country || 'en-US';
     const user_agent = request.body.user_agent || USER_AGENT;
     
     // TODO: check if file exists
@@ -137,12 +147,27 @@ app.post('/', async function (request, response) {
         });
 
 	    /* end options */
-
-	    const req =  await page.goto(target_url,  { waitUntil: wait_until, timeout: 0 }).then(() => {
+	    /*
+		Page.goto in case of redirects it will return the last redirected url.
+	    */
+	    const resp =  await page.goto(target_url,  { waitUntil: wait_until, timeout: 0 }).then(() => {
 	         console.log('success')
 		}).catch((res) => {
-		    console.log('fails', res)
+			/**
+			page.goto fails if:
+				there's an SSL error (e.g. in case of self-signed certificates).
+				target URL is invalid.
+				timeout is exceeded during navigation.
+				the remote server does not respond or is unreachable. the main resource failed to load.
+			**/
+		    console.log('failed request');
+		    return response.status(600).send('error');
 		});
+
+		if ( 400 <= resp.status() < 600 ) {
+			console.log('failed response');
+		    return response.status(resp.status()).send('error');
+		}
 
         if ( custom_js ) {
             await page.addScriptTag({ path: './js/'+custom_js+'.js' });
@@ -157,7 +182,7 @@ app.post('/', async function (request, response) {
 	} catch (error) {
 	    console.log(error);
 	    response.set('Content-Type', 'text/plain');
-	    response.send('error');
+	    response.status(520).send('error')
     }
 
 });
