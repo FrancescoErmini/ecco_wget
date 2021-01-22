@@ -8,6 +8,7 @@ const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/
 const randomUseragent = require('random-useragent');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const { assert } = require('puppeteer/lib/cjs/puppeteer/common/assert');
 puppeteer.use(StealthPlugin());
 
 
@@ -17,6 +18,7 @@ const HOST = '0.0.0.0';
 
 const DEBUG = true;
 
+
 app.get('/', function(req, res) {
   res.send('OK');
 });
@@ -25,6 +27,14 @@ app.get('/', function(req, res) {
 function query2bool(value) {
   return ((value+'').toLowerCase() === 'true')
 }
+
+const myWaitFor = function(timeToWait) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(true);
+      }, timeToWait);
+    });
+  };
 
 
 app.post('/', async function (request, response) {
@@ -41,6 +51,7 @@ app.post('/', async function (request, response) {
     const language = request.body.language || 'en';
     const language_country = request.body.language_country || 'en-US';
     const user_agent = request.body.user_agent || USER_AGENT;
+    const pagination = request.body.pagination || null;
     
     // TODO: check if file exists
     console.log("target url: " + target_url);
@@ -90,6 +101,7 @@ app.post('/', async function (request, response) {
             isLandscape: false,
             isMobile: false,
         });
+        await page.setCacheEnabled( false );
         await page.setUserAgent(user_agent);
         await page.setJavaScriptEnabled(true);
         await page.setDefaultNavigationTimeout(0);
@@ -150,7 +162,7 @@ app.post('/', async function (request, response) {
 	    /*
 		Page.goto in case of redirects it will return the last redirected url.
 	    */
-	    const resp =  await page.goto(target_url,  { waitUntil: wait_until, timeout: 0 }).then(() => {
+	    await page.goto(target_url,  { waitUntil: wait_until, timeout: 0 }).then(() => {
 	         console.log('success')
 		}).catch((res) => {
 			/**
@@ -161,28 +173,76 @@ app.post('/', async function (request, response) {
 				the remote server does not respond or is unreachable. the main resource failed to load.
 			**/
 		    console.log('failed request');
+            console.log(res);
 		    return response.status(600).send('error');
 		});
 
-		if ( 400 <= resp.status() < 600 ) {
-			console.log('failed response');
-		    return response.status(resp.status()).send('error');
-		}
+		// if ( 400 <= resp.status() < 600 ) {
+		// 	console.log('failed response');
+		//     return response.status(resp.status()).send('error');
+		// }
+        
+        
 
-        if ( custom_js ) {
-            await page.addScriptTag({ path: './js/'+custom_js+'.js' });
+        // PAGINATION NAV: CLICK ON LINK, THEN GET THAT PAGE IN RETURN
+        if ( pagination ) {
+            
+            const myselector = pagination.value.trim();
+            //const myselector = myselector2.trim();
+            console.log(myselector);
+            await page.waitFor(500);
+            try {
+                //const pageTarget = page.target();
+                await Promise.all([
+                    await page.waitForSelector(myselector),
+                    await page.evaluate((selector) => document.querySelector(selector).click(), myselector), 
+                    await page.waitFor(1000),
+                    // await page.screenshot({path: 'example7.png'})
+
+                ]);
+                    //get list of open tabs (does not include new tab)
+                const pages = await browser.pages();
+
+                //prints 2 although there are 3 tabs
+                console.log(pages.length); 
+
+                // get the new page
+                const page2 = pages[pages.length - 1]; 
+                
+                if ( custom_js ) {
+                    await page2.addScriptTag({ path: './js/'+custom_js+'.js' });
+                }
+                const dat = await page2.evaluate(() => document.querySelector('*').outerHTML);
+                response.set('Content-Type', 'text/plain');
+                response.send(dat);
+
+                //const newTarget = await browser.waitForTarget(target => target.opener() === pageTarget); //check that you opened this page, rather than just checking the url
+                //const newPage = await newTarget.page(); //get the page object
+                //await newPage.waitForSelector("body"); //wait for page to be loaded
+
+            } catch (error) {
+
+                console.log("error clicking " + myselector + " : " + error );
+                throw error;
+            }
+                    
+            
         }
 
-        const data = await page.evaluate(() => document.querySelector('*').outerHTML);
-	    await page.close();
+        else {
+            var data = await page.evaluate(() => document.querySelector('*').outerHTML);
+            response.set('Content-Type', 'text/plain');
+	        response.send(data);
+        } 
+        await page.close();
 	    await browser.close();
-	    response.set('Content-Type', 'text/plain');
-	    response.send(data);
+	    //response.set('Content-Type', 'text/plain');
+	    //response.send(data);
 		
 	} catch (error) {
 	    console.log(error);
 	    response.set('Content-Type', 'text/plain');
-	    response.status(520).send('error')
+	    response.status(520).send('error'+error);
     }
 
 });

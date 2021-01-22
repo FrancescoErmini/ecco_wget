@@ -11,3 +11,16 @@ data = {
 
 response = requests.post(ECCO_WGET_URL, data=data)
 print(response.text)
+
+
+TEST FOR PAGINATION:
+
+{"url":"https://scrapeme.live/shop/",
+ "wait_until":"networkidle0",
+ "viewport":"1920x3000",
+ "headless":true,
+ "pagination":{
+    "type": "selector", 
+    "value": "#main > div > nav > ul > li:nth-child(6) > a"
+ }
+}
